@@ -1,0 +1,10 @@
+[Unit]
+Description=USB QR Scanner Service
+
+[Service]
+Type=simple
+ExecStart=%h/afc-spool-scan/usb-qr-scanner-read.sh
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
