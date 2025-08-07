@@ -28,7 +28,12 @@ post_next_spool_id() {
 process_line() {
     local line="$1"
     if [[ "$line" == "$SPOOLMAN_PREFIX"* ]]; then
+        echo "Magic code Scanned"
         SPOOL_ID="${line#$SPOOLMAN_PREFIX}"
+        post_next_spool_id "${SPOOL_ID}"
+    elif [[ "$line" == "http"* ]]; then
+        echo "URL Scanned"
+        SPOOL_ID=`echo $line | cut -d'/' -f6`
         post_next_spool_id "${SPOOL_ID}"
     fi
 }

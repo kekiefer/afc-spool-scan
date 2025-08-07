@@ -6,7 +6,8 @@ spool IDs in AFC.
 
 Once the service is running, the utility will listen for events from the connected USB 
 2D barcode scanner. If a scanned code begins with the magic spoolman prefix `web+spoolman:s-`,
-it will send a `SET_NEXT_SPOOL_ID SPOOL_ID=#` command to AFC for the next spool to be loaded.
+or the scanned code is a URL `Base URL\spool\show\`, it will send a `SET_NEXT_SPOOL_ID SPOOL_ID=#` 
+command to AFC for the next spool to be loaded.
 
 Here's the scanner that I'm using, but it's expected that most of the 2D barcode scanners
 will work with this method: https://www.amazon.com/dp/B0DYY7GLSL
