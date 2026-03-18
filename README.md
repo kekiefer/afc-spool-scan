@@ -74,3 +74,50 @@ Installation
     systemctl --user enable usb-qr-scanner.service
     systemctl --user start usb-qr-scanner.service
     ```
+
+Generating a Moonraker Host QR Code
+------------------------------------
+
+If you want to change the Moonraker connection at runtime by scanning a QR code, use the
+included `generate-moonraker-qr.sh` script to generate one. The QR code encodes the
+target with the `web+moonraker:` prefix, which the scanner service recognises and uses
+to update its active Moonraker scheme, host, and port.
+
+The scanned value after the prefix can be in any of these forms:
+
+| Format | Example | Result |
+|---|---|---|
+| `hostname` | `dragonforge` | host updated, scheme and port unchanged |
+| `hostname:port` | `dragonforge:1234` | host and port updated, scheme unchanged |
+| `scheme://hostname` | `https://dragonforge` | scheme and host updated, port unchanged |
+| `scheme://hostname:port` | `https://dragonforge:8443` | scheme, host, and port all updated |
+
+The defaults are scheme `http`, host `localhost`, and port `7125`.
+
+**Install `qrencode` if you haven't already:**
+
+```
+sudo apt install qrencode
+```
+
+**Generate a QR code:**
+
+```
+# Default output filename (moonraker-host.png)
+./generate-moonraker-qr.sh <target>
+
+# Custom output filename
+./generate-moonraker-qr.sh <target> output.png
+```
+
+**Examples:**
+
+```
+./generate-moonraker-qr.sh dragonforge
+./generate-moonraker-qr.sh 192.168.1.100 my-printer.png
+./generate-moonraker-qr.sh dragonforge:1234
+./generate-moonraker-qr.sh https://dragonforge.localdomain:8443
+```
+
+Scan this code just before scanning your spool to direct subsequent spool scan
+commands to the new target.

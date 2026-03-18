@@ -2,9 +2,11 @@
 
 # Set the HID device path (update if needed)
 EVENT_DEV="/dev/input/by-id/usb-TMS_HIDKeyBoard_1234567890abcd-event-kbd"
+MOONRAKER_SCHEME="http"
 MOONRAKER_HOST="localhost"
 MOONRAKER_PORT="7125"
 SPOOLMAN_PREFIX="web+spoolman:s-"
+MOONRAKER_PREFIX="web+moonraker:"
 
 # Check if evtest is installed
 if ! command -v evtest >/dev/null 2>&1; then
@@ -20,9 +22,64 @@ fi
 
 post_next_spool_id() {
     local SPOOL_ID="$1"
-    curl -X POST "http://${MOONRAKER_HOST}:${MOONRAKER_PORT}/printer/gcode/script" \
+    curl -X POST "${MOONRAKER_SCHEME}://${MOONRAKER_HOST}:${MOONRAKER_PORT}/printer/gcode/script" \
         -H "Content-Type: application/json" \
         -d "{\"script\": \"SET_NEXT_SPOOL_ID SPOOL_ID=${SPOOL_ID}\"}"
+}
+
+set_moonraker_target() {
+    local target_raw="$1"
+    local target
+    local host
+    local port
+
+    # Strip whitespace so accidental spaces in a scan do not break parsing.
+    target="$(echo "$target_raw" | tr -d '[:space:]')"
+
+    if [[ -z "$target" ]]; then
+        echo "Ignoring Moonraker target: empty value"
+        return 1
+    fi
+
+    # Parse and strip optional scheme (http:// or https://).
+    if [[ "$target" == https://* ]]; then
+        MOONRAKER_SCHEME="https"
+        target="${target#https://}"
+    elif [[ "$target" == http://* ]]; then
+        MOONRAKER_SCHEME="http"
+        target="${target#http://}"
+    fi
+
+    # Strip any trailing path (anything from the first / onward).
+    target="${target%%/*}"
+
+    # Split into host and optional port, then validate each part separately.
+    host="${target%%:*}"
+    port="${target#"$host"}"
+    port="${port#:}"  # strip leading colon, leaving just the number (or empty)
+
+    if [[ ! "$host" =~ ^[A-Za-z0-9.-]+$ ]]; then
+        echo "Ignoring Moonraker target: invalid host '$host'"
+        return 1
+    fi
+
+    if [[ -n "$port" && ! "$port" =~ ^[0-9]+$ ]]; then
+        echo "Ignoring Moonraker target: invalid port '$port'"
+        return 1
+    fi
+
+    if [[ -n "$port" && ( "$port" -lt 1 || "$port" -gt 65535 ) ]]; then
+        echo "Ignoring Moonraker target: invalid port '$port'"
+        return 1
+    fi
+
+    MOONRAKER_HOST="$host"
+    if [[ -n "$port" ]]; then
+        MOONRAKER_PORT="$port"
+    fi
+
+    echo "Moonraker target set to ${MOONRAKER_SCHEME}://${MOONRAKER_HOST}:${MOONRAKER_PORT}"
+    return 0
 }
 
 process_line() {
@@ -35,6 +92,9 @@ process_line() {
         echo "URL Scanned"
         SPOOL_ID=`echo $line | cut -d'/' -f6`
         post_next_spool_id "${SPOOL_ID}"
+    elif [[ "$line" == "$MOONRAKER_PREFIX"* ]]; then
+        echo "Moonraker code Scanned"
+        set_moonraker_target "${line#$MOONRAKER_PREFIX}"
     fi
 }
 
