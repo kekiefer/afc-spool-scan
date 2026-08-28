@@ -1,0 +1,27 @@
+# USB QR scanner configuration
+#
+# Copy this file into your Klipper config directory so that it survives updates
+# of this repository and can be edited from Mainsail/Fluidd:
+#
+#     cp qr-scanner.conf.example ~/printer_data/config/qr-scanner.conf
+#
+# Then restart the service:
+#
+#     systemctl --user restart usb-qr-scanner
+#
+# Only the settings listed below are recognised; anything else is ignored with
+# a warning. Values are read literally - shell expansion is NOT performed.
+
+# Path to your scanner's input device. Find yours with:
+#     ls -l /dev/input/by-id/ | grep event-kbd
+EVENT_DEV="/dev/input/by-id/usb-TMS_HIDKeyBoard_1234567890abcd-event-kbd"
+
+# Where scans are sent. The defaults suit a scanner plugged into the printer
+# host itself, and can also be set at runtime by scanning a Moonraker QR code.
+#MOONRAKER_SCHEME="http"
+#MOONRAKER_HOST="localhost"
+#MOONRAKER_PORT="7125"
+
+# Prefixes recognised in scanned codes.
+#SPOOLMAN_PREFIX="web+spoolman:s-"
+#MOONRAKER_PREFIX="web+moonraker:"

@@ -8,6 +8,59 @@ MOONRAKER_PORT="7125"
 SPOOLMAN_PREFIX="web+spoolman:s-"
 MOONRAKER_PREFIX="web+moonraker:"
 
+# Optional user overrides.  Any setting in this file wins over the defaults
+# above.  It defaults to the standard Klipper config directory so it can be
+# edited from Mainsail/Fluidd and is captured by config backups, and so it
+# survives updates of this repository.
+#
+# The file is parsed as strict KEY=value pairs rather than sourced.  The config
+# directory is normally served by the web UI, so sourcing it would turn "can
+# write a config file" into "can run arbitrary shell as this user".
+QR_SCANNER_CONF="${QR_SCANNER_CONF:-$HOME/printer_data/config/qr-scanner.conf}"
+
+load_config() {
+    local file="$1"
+    local line key value first last
+
+    [[ -r "$file" ]] || return 0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip blank lines and whole-line comments.
+        [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ "$line" != *=* ]] && continue
+
+        key="${line%%=*}"
+        value="${line#*=}"
+
+        # Trim surrounding whitespace from both halves.
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+
+        # Strip one layer of matching quotes, if present.
+        first="${value:0:1}"
+        last="${value: -1}"
+        if [[ ${#value} -ge 2 && "$first" == "$last" ]]; then
+            case "$first" in
+                '"'|"'") value="${value:1:${#value}-2}" ;;
+            esac
+        fi
+
+        case "$key" in
+            EVENT_DEV|MOONRAKER_SCHEME|MOONRAKER_HOST|MOONRAKER_PORT|SPOOLMAN_PREFIX|MOONRAKER_PREFIX)
+                printf -v "$key" '%s' "$value"
+                ;;
+            *)
+                echo "Ignoring unrecognised setting '$key' in $file"
+                ;;
+        esac
+    done < "$file"
+}
+
+load_config "$QR_SCANNER_CONF"
+
 # Check if evtest is installed
 if ! command -v evtest >/dev/null 2>&1; then
     echo "Error: evtest is not installed or not in PATH."
@@ -16,7 +69,22 @@ fi
 
 # Check device exists
 if [ ! -e "$EVENT_DEV" ]; then
-    echo "Device $EVENT_DEV not found."
+    echo "Error: scanner input device not found:"
+    echo "    $EVENT_DEV"
+    echo
+    echo "Set EVENT_DEV in $QR_SCANNER_CONF"
+    echo "(copy qr-scanner.conf.example from this repository to get started)."
+    echo
+    echo "Keyboard-like input devices currently attached:"
+    found=0
+    for dev in /dev/input/by-id/*-event-kbd; do
+        [ -e "$dev" ] || continue
+        echo "    $dev"
+        found=1
+    done
+    if [ "$found" -eq 0 ]; then
+        echo "    (none found - is the scanner plugged in?)"
+    fi
     exit 1
 fi
 

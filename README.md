@@ -29,16 +29,31 @@ Installation
     cd afc-spool-scan
     ```
 
-2. **Modify the evdev path for your scanner, if necessary**
+2. **Tell the utility where your scanner is:**
 
-    My scanner doesn't have a unique serial number, and many others will not
-    either, so by default the scanner path is `/dev/input/by-id/usb-TMS_HIDKeyBoard_1234567890abcd-event-kbd`.
-    You should plug in your scanner, and check this location to see if you need
-    to fix up the `EVENT_DEV` variable in `usb-qr-scanner-read.sh`.
+    Most 2D barcode scanners do not report a unique serial number, so the
+    default path (`/dev/input/by-id/usb-TMS_HIDKeyBoard_1234567890abcd-event-kbd`)
+    is unlikely to match yours. Plug in your scanner and list the attached
+    input devices:
 
     ```
     ls -la /dev/input/by-id/
     ```
+
+    Copy the example configuration into your Klipper config directory, then set
+    `EVENT_DEV` to the `-event-kbd` entry belonging to your scanner:
+
+    ```
+    cp qr-scanner.conf.example ~/printer_data/config/qr-scanner.conf
+    ```
+
+    Keeping your settings there rather than editing `usb-qr-scanner-read.sh`
+    means they survive updates to this repository, they can be edited from
+    Mainsail/Fluidd, and they are captured by config backups. Set
+    `QR_SCANNER_CONF` in the environment to read the file from somewhere else.
+
+    If the device cannot be found at startup, the service reports the path it
+    tried along with the keyboard-like devices it can actually see.
 
 3. **Install the `evtest` package:**
 
