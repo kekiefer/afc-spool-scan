@@ -8,58 +8,45 @@ MOONRAKER_PORT="7125"
 SPOOLMAN_PREFIX="web+spoolman:s-"
 MOONRAKER_PREFIX="web+moonraker:"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Optional user overrides.  Any setting in this file wins over the defaults
 # above.  It defaults to the standard Klipper config directory so it can be
 # edited from Mainsail/Fluidd and is captured by config backups, and so it
 # survives updates of this repository.
 #
-# The file is parsed as strict KEY=value pairs rather than sourced.  The config
-# directory is normally served by the web UI, so sourcing it would turn "can
-# write a config file" into "can run arbitrary shell as this user".
+# The file uses Klipper's own config format and is parsed by the helper script
+# with the same configparser settings Klipper uses, so a file that Klipper would
+# accept behaves the same way here.
 QR_SCANNER_CONF="${QR_SCANNER_CONF:-$HOME/printer_data/config/qr-scanner.conf}"
 
-load_config() {
-    local file="$1"
-    local line key value first last
+if [ -e "$QR_SCANNER_CONF" ]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "Error: python3 is required to read $QR_SCANNER_CONF" >&2
+        exit 1
+    fi
 
-    [[ -r "$file" ]] || return 0
+    # Capture the helper's output rather than sourcing it.  Sourcing a process
+    # substitution (". <(helper)") discards the helper's exit status, so a
+    # config file the helper could not read would silently fall back to the
+    # defaults above and then fail later with a "device not found" naming a
+    # device the user never configured.
+    if ! qr_scanner_settings="$(python3 "$SCRIPT_DIR/qr-scanner-config.py" "$QR_SCANNER_CONF")"; then
+        echo "Error: could not read $QR_SCANNER_CONF" >&2
+        exit 1
+    fi
 
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        # Skip blank lines and whole-line comments.
-        [[ "$line" =~ ^[[:space:]]*$ ]] && continue
-        [[ "$line" =~ ^[[:space:]]*# ]] && continue
-        [[ "$line" != *=* ]] && continue
+    # The helper shell-quotes every value, so a config file cannot inject shell
+    # code here -- worth care, because the config directory is served by the web
+    # UI.  Check the shape of what came back before evaluating it, which is only
+    # possible because it was captured rather than sourced.
+    if [ -n "$qr_scanner_settings" ] && grep -qvE '^[A-Z_]+=' <<< "$qr_scanner_settings"; then
+        echo "Error: unexpected output from qr-scanner-config.py" >&2
+        exit 1
+    fi
 
-        key="${line%%=*}"
-        value="${line#*=}"
-
-        # Trim surrounding whitespace from both halves.
-        key="${key#"${key%%[![:space:]]*}"}"
-        key="${key%"${key##*[![:space:]]}"}"
-        value="${value#"${value%%[![:space:]]*}"}"
-        value="${value%"${value##*[![:space:]]}"}"
-
-        # Strip one layer of matching quotes, if present.
-        first="${value:0:1}"
-        last="${value: -1}"
-        if [[ ${#value} -ge 2 && "$first" == "$last" ]]; then
-            case "$first" in
-                '"'|"'") value="${value:1:${#value}-2}" ;;
-            esac
-        fi
-
-        case "$key" in
-            EVENT_DEV|MOONRAKER_SCHEME|MOONRAKER_HOST|MOONRAKER_PORT|SPOOLMAN_PREFIX|MOONRAKER_PREFIX)
-                printf -v "$key" '%s' "$value"
-                ;;
-            *)
-                echo "Ignoring unrecognised setting '$key' in $file"
-                ;;
-        esac
-    done < "$file"
-}
-
-load_config "$QR_SCANNER_CONF"
+    eval "$qr_scanner_settings"
+fi
 
 # Check if evtest is installed
 if ! command -v evtest >/dev/null 2>&1; then
@@ -72,7 +59,8 @@ if [ ! -e "$EVENT_DEV" ]; then
     echo "Error: scanner input device not found:"
     echo "    $EVENT_DEV"
     echo
-    echo "Set EVENT_DEV in $QR_SCANNER_CONF"
+    echo "Set 'event_dev' in the [qr_scanner] section of:"
+    echo "    $QR_SCANNER_CONF"
     echo "(copy qr-scanner.conf.example from this repository to get started)."
     echo
     echo "Keyboard-like input devices currently attached:"
