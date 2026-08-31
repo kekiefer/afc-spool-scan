@@ -17,6 +17,7 @@ Requirements
 
 - Linux system with `evtest` package installed.
 - User must be a member of the `input` group to access input devices.
+- `python3`, if you use a configuration file (already present on any Klipper host).
 
 Installation
 ------------
@@ -41,11 +42,15 @@ Installation
     ```
 
     Copy the example configuration into your Klipper config directory, then set
-    `EVENT_DEV` to the `-event-kbd` entry belonging to your scanner:
+    `event_dev` to the `-event-kbd` entry belonging to your scanner:
 
     ```
     cp qr-scanner.conf.example ~/printer_data/config/qr-scanner.conf
     ```
+
+    The file uses Klipper's own config format and is parsed with the same
+    `configparser` settings Klipper uses, so anything Klipper would accept
+    works here too.
 
     Keeping your settings there rather than editing `usb-qr-scanner-read.sh`
     means they survive updates to this repository, they can be edited from
